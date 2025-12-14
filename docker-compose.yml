@@ -1,0 +1,46 @@
+services:
+  py:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: skid_detector:latest
+    hostname: python
+    restart: no
+    depends_on:
+      gdal:
+        condition: service_healthy
+    volumes:
+      -  ${DATA_DIR}:/data
+      - ./:/app
+    env_file:
+      - .env
+    environment:
+      - ENV
+      - DATA_DIR
+    tty: true
+    command: ["src/main.py"]
+
+  gdal:
+    build:
+      context: .
+      dockerfile: Dockerfile.gdal
+    image: gdal:latest
+    hostname: gdal
+    restart: unless-stopped
+    healthcheck:
+      test: curl --silent --fail http://localhost:5001/health || exit 1
+      interval: 30s
+      retries: 5
+      start_period: 10s
+      timeout: 5s
+    volumes:
+      - ${DATA_DIR}:/data
+    env_file:
+      - .env
+    environment:
+      - ENV
+      - DATA_DIR
+      - FLASK_APP=api.py
+      - FLASK_ENV=development
+    tty: true
+    command: ["flask", "run", "--debug", "--host=0.0.0.0", "--port=5001"]
